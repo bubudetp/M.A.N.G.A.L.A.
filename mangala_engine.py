@@ -1,4 +1,6 @@
 class MangalaGame:
+
+
     def __init__(self):
         # 0–5: P0 pits | 6: P0 kazan | 7–12: P1 pits | 13: P1 kazan
         self.board = [3] * 6 + [0] + [3] * 6 + [0]
@@ -15,58 +17,75 @@ class MangalaGame:
 
     def make_move(self, pit_index):
         if not self.is_own_pit(pit_index, self.current_player):
-            raise ValueError("Not your pit.")
-        if self.board[pit_index] <= 1:
-            raise ValueError("Pit must have at least 2 stones to make a move.")
+            raise ValueError("Ce n'est pas ta case.")
+        if self.board[pit_index] == 0:
+            raise ValueError("La case est vide.")
 
-        index = pit_index
-        stones = self.board[index] - 1  # Take all stones except one
-        self.board[index] = 1  # Leave one stone in the pit
+        opposite_index = 12 - pit_index
 
-        while True:
-            # Sow stones
-            while stones > 0:
-                index = (index + 1) % 14
-                if self.current_player == 0 and index == 13:
-                    continue  # skip opponent's kazan
-                if self.current_player == 1 and index == 6:
-                    continue
-                self.board[index] += 1
-                stones -= 1
+        if self.board[pit_index] == self.board[opposite_index] and self.board[pit_index] != 3:
+            prises = self.board[pit_index] + self.board[opposite_index]
+            kazan  = self.get_kazan_index(self.current_player)
+            self.board[kazan] += prises
+            self.board[pit_index] = 0
+            self.board[opposite_index] = 0
+            print(f"Capture égalité immédiate : {prises} pierres (cases {pit_index} & {opposite_index}).")
+            return  # on rejoue
 
-            # Rule 1: landed in your kazan → extra turn
-            if index == self.get_kazan_index(self.current_player):
-                print("Last stone landed in your kazan. You go again.")
-                return
+        if self.board[pit_index] == 1:
+            raise ValueError("Il faut au moins 2 pierres pour semer (sinon capture).")
 
-            # Rule 2: your pit matches opposite → extra turn
-            if self.is_own_pit(index, self.current_player):
-                opposite_index = 12 - index
-                if self.board[index] == self.board[opposite_index]:
-                    print(f"Symmetrical stone count with pit {opposite_index}. You go again.")
-                    return
+        index  = pit_index
+        stones = self.board[index] - 1      # on laisse 1 pierre
+        self.board[index] = 1
 
-            # Rule 3: relay sowing from own pit with even stones
-            if self.is_own_pit(index, self.current_player) and self.board[index] >= 2 and self.board[index] % 2 == 0:
-                stones = self.board[index]
-                self.board[index] = 0
-                print(f"Relay move from pit {index} with {stones} stones.")
-                continue  # restart sowing with picked-up stones
+        while stones > 0:
+            index = (index + 1) % 14
+            if self.current_player == 0 and index == 13:
+                continue
+            if self.current_player == 1 and index == 6:
+                continue
+            self.board[index] += 1
+            stones -= 1
 
-            # Rule 4: capture if ends on 1 or 3 in own pit
-            if self.is_own_pit(index, self.current_player) and self.board[index] in [1, 3]:
-                kazan = self.get_kazan_index(self.current_player)
-                print(f"Captured {self.board[index]} stones from pit {index}.")
-                self.board[kazan] += self.board[index]
-                self.board[index] = 0
+        if index == self.get_kazan_index(self.current_player):
+            print("Dernière pierre dans ton kazan : rejoue !")
+            return
 
-            break 
+        if self.is_own_pit(index, self.current_player) and self.board[index] in (1, 3):
+            kazan = self.get_kazan_index(self.current_player)
+            prises = self.board[index]
+            self.board[kazan] += prises
+            self.board[index] = 0
+            print(f"Capture 1/3 : {prises} pierre(s) prise(s) de la case {index}.")
+            return 
 
         self.current_player = 1 - self.current_player
 
 
-    def legal_moves(self):
-        return [i for i in self.get_player_pits(self.current_player) if self.board[i] > 1]
+    def can_capture_equal(self, idx):
+        """True si la case idx et sa case opposée ont le même nombre ≠ 3."""
+        opp = 12 - idx
+        return (self.is_own_pit(idx, self.current_player)
+                and self.board[idx] == self.board[opp]
+                and self.board[idx] != 3
+                and self.board[idx] > 0)
+
+    def legal_actions(self):
+        """
+        Renvoie une liste d’actions possibles pour le joueur courant.
+        Chaque action est un tuple (idx, mode) où mode = 'C' ou 'S'.
+        """
+        actions = []
+        for i in self.get_player_pits(self.current_player):
+            if self.board[i] == 0:
+                continue
+            if self.can_capture_equal(i):
+                actions.append((i, 'C'))
+            if self.board[i] > 1:
+                actions.append((i, 'S'))
+        return actions
+
 
     def is_game_over(self):
         side_0_empty = all(self.board[i] == 0 for i in range(0, 6))
@@ -91,9 +110,17 @@ class MangalaGame:
         print(f"\nCurrent player: {'P0' if self.current_player == 0 else 'P1'}\n")
 
     def print_legal_moves(self):
-        print(f"Legal moves for {'P0' if self.current_player == 0 else 'P1'}:")
-        for pit in self.legal_moves():
-            print(f"  - Pit {pit} ({self.board[pit]} stones)")
+        P0 = {0:'A',1:'B',2:'C',3:'D',4:'E',5:'F'}
+        P1 = {12:'L',11:'K',10:'J',9:'I',8:'H',7:'G'}
+        labels = P0 if self.current_player == 0 else P1
+        print(f"Actions possibles pour {'P0' if self.current_player==0 else 'P1'} :")
+        for idx, mode in self.legal_actions():
+            lab = labels[idx]
+            if mode == 'C':
+                print(f"  - {lab} (index {idx})  ⚔  Capture égalité ({self.board[idx]} pierres)")
+            else:
+                print(f"  - {lab} (index {idx})  ➜  Sème ({self.board[idx]} pierres)")
+
 
 game = MangalaGame()
 game.print_board()
