@@ -17,6 +17,26 @@ ai = KazanMasterAI(max_depth=5)
 
 st.title("KazanMaster: Play Mangala vs AI")
 
+# Display game rules
+with st.expander("📜 How to Play Mangala"):
+    st.markdown("""
+- **Objective**: Collect more seeds in your Kazan (store) than your opponent.
+- **Your side**: Pits `0` to `5`, your Kazan is at index `6`.
+- **AI side**: Pits `7` to `12`, AI’s Kazan is at index `13`.
+
+### 🎯 Turn Rules:
+- On your turn, pick a pit from your side (0–5) with seeds.
+- Seeds are distributed one by one counterclockwise.
+- Skip the opponent’s Kazan during sowing.
+- If the last seed lands in **your Kazan**, you get another turn.
+- If the last seed lands in **your empty pit** on your side, and the opposite pit has seeds, **capture** both into your Kazan.
+
+### 🏁 End of Game:
+- The game ends when all pits on one side are empty.
+- Remaining seeds go to the opponent’s Kazan.
+- The player with the most seeds in their Kazan **wins**.
+""")
+
 # Render Kazan for AI
 st.markdown(f"### AI Kazan (P1): `{game.board[13]}`")
 
