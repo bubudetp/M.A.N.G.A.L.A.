@@ -1,94 +1,80 @@
 import streamlit as st
+import pyttsx3
 from code.mangala_engine import MangalaGame
 from code.ai.kazanmaster_ai import KazanMasterAI
 
-st.set_page_config(page_title="MANGALA AI", layout="centered")
+st.set_page_config(page_title="Rigged 1v1 Mangala", layout="centered")
 
-# Session state init
+# Initialize session state
 if "game" not in st.session_state:
     st.session_state.game = MangalaGame()
-    st.session_state.message = "Your turn. Choose a pit to move."
-    st.session_state.awaiting_ai = False
-    st.session_state.last_ai_move = None
-    st.session_state.last_player_move = None
+    st.session_state.message = "Player 0's turn."
+    st.session_state.current_player = 0
+    st.session_state.last_moves = []
 
-game = st.session_state.game
+# AI helper (used secretly for one side)
 ai = KazanMasterAI(max_depth=5)
+engine = pyttsx3.init()
 
-st.title("KazanMaster: Play Mangala vs AI")
+# Function to speak moves
+def speak(text):
+    engine.say(text)
+    engine.runAndWait()
 
-# Display game rules
-with st.expander("📜 How to Play Mangala"):
-    st.markdown("""
-- **Objective**: Collect more seeds in your Kazan (store) than your opponent.
-- **Your side**: Pits `0` to `5`, your Kazan is at index `6`.
-- **AI side**: Pits `7` to `12`, AI’s Kazan is at index `13`.
+# Game object
+game = st.session_state.game
 
-### 🎯 Turn Rules:
-- On your turn, pick a pit from your side (0–5) with seeds.
-- Seeds are distributed one by one counterclockwise.
-- Skip the opponent’s Kazan during sowing.
-- If the last seed lands in **your Kazan**, you get another turn.
-- If the last seed lands in **your empty pit** on your side, and the opposite pit has seeds, **capture** both into your Kazan.
+st.title("🎭 Rigged 1v1 Mode: One Side is Assisted")
 
-### 🏁 End of Game:
-- The game ends when all pits on one side are empty.
-- Remaining seeds go to the opponent’s Kazan.
-- The player with the most seeds in their Kazan **wins**.
-""")
+# Kazans
+st.markdown(f"### 🧍 Player 0 Kazan: `{game.board[6]}`")
+st.markdown(f"### 🧠 Player 1 Kazan: `{game.board[13]}`")
 
-# Render Kazan for AI
-st.markdown(f"### AI Kazan (P1): `{game.board[13]}`")
-
-# Top row (AI pits 12–7)
-top_row = st.columns(6)
-for i, col in zip(range(12, 6, -1), top_row):
+# Player 1 row (12–7)
+top = st.columns(6)
+for i, col in zip(range(12, 6, -1), top):
     col.markdown(f"⬇️ **{i}**")
-    col.button(f"🟪 {game.board[i]}", key=f"ai_{i}", disabled=True)
+    col.button(f"{game.board[i]}", disabled=True, key=f"ai_{i}")
 
-# Bottom row (Player pits 0–5)
-bottom_row = st.columns(6)
-for i, col in zip(range(0, 6), bottom_row):
+# Player 0 row (0–5)
+bottom = st.columns(6)
+for i, col in zip(range(0, 6), bottom):
     col.markdown(f"⬆️ **{i}**")
     if game.current_player == 0 and game.board[i] > 0:
-        if col.button(f"🟩 {game.board[i]}", key=f"p0_{i}"):
-            player_retains_turn = game.make_move(i)
-            st.session_state.last_player_move = i
-            st.session_state.last_ai_move = None
-            st.session_state.awaiting_ai = not player_retains_turn  # AI plays only if player doesn't retain turn
+        if col.button(f"{game.board[i]}", key=f"p0_{i}"):
+            retained = game.make_move(i)
+            st.session_state.last_moves.append((0, i))
+            st.session_state.current_player = 0 if retained else 1
+            st.rerun()
+    elif game.current_player == 1 and game.board[i] > 0:
+        if col.button(f"{game.board[i]}", key=f"p1_{i}"):
+            retained = game.make_move(i)
+            st.session_state.last_moves.append((1, i))
+            st.session_state.current_player = 1 if retained else 0
             st.rerun()
     else:
-        col.button(f"🟩 {game.board[i]}", key=f"p0_{i}", disabled=True)
+        col.button(f"{game.board[i]}", disabled=True, key=f"p0_{i}_d")
 
-# Render Kazan for player
-st.markdown(f"### 🧍 Your Kazan (P0): `{game.board[6]}`")
+# Suggest best move for P1 using AI
+if game.current_player == 1:
+    best_move = ai.get_best_move(game)
+    st.warning(f"🤖 (Rigged Helper): Player 1 should play pit {best_move}.")
+    speak(f"Player one should play pit {best_move}")
 
-# Perform AI move if needed
-if game.current_player == 1 and st.session_state.awaiting_ai and not game.is_game_over():
-    ai_move = ai.get_best_move(game)
-    ai_retains_turn = game.make_move(ai_move)
-    st.session_state.last_ai_move = ai_move
-    st.session_state.awaiting_ai = ai_retains_turn  # AI continues only if it retains turn
-    st.rerun()
-
-# Message display
-msg = ""
-if st.session_state.last_player_move is not None:
-    msg += f"🟩 You played pit {st.session_state.last_player_move}.  "
-if st.session_state.last_ai_move is not None:
-    msg += f"🟪 AI played pit {st.session_state.last_ai_move}."
-st.divider()
-st.info(msg or st.session_state.message)
+# Show last move info
+if st.session_state.last_moves:
+    last = st.session_state.last_moves[-1]
+    st.info(f"Last move — Player {last[0]} played pit {last[1]}")
 
 # Game Over
 if game.is_game_over():
     game.end_game()
     p0_score = game.board[6]
     p1_score = game.board[13]
-    result = "🏆 You win!" if p0_score > p1_score else "💀 AI wins!" if p1_score > p0_score else "🤝 Draw!"
-    st.success(f"**Game Over!** Final Score — You: `{p0_score}` | AI: `{p1_score}`\n\n{result}")
+    result = "🏆 Player 0 wins!" if p0_score > p1_score else "🏆 Player 1 wins!" if p1_score > p0_score else "🤝 Draw!"
+    st.success(f"Game Over! Final score: P0 = {p0_score}, P1 = {p1_score}\n\n{result}")
 
-# Restart
+# Restart button
 if st.button("🔄 Restart Game"):
     st.session_state.clear()
-    st.experimental_rerun()
+    st.rerun()
