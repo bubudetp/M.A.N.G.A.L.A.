@@ -2,7 +2,7 @@ import copy
 import math
 
 class KazanMasterAI:
-    def __init__(self, max_depth=5):
+    def __init__(self, max_depth=10):
         self.max_depth = max_depth
         self.transposition_table = {}
 

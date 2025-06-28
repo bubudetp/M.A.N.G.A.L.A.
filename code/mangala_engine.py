@@ -1,4 +1,4 @@
-from kazanmaster_ai import KazanMasterAI
+from code.kazanmaster_ai import KazanMasterAI
 
 ai = KazanMasterAI(max_depth=6)
 class MangalaGame:
@@ -61,7 +61,6 @@ class MangalaGame:
             stones -= 1
 
         if index == self.get_kazan_index(self.current_player):
-            print("Dernière pierre dans ton kazan : rejoue !")
             return
 
         # Optional: enable this if you want post-move capture on specific counts
@@ -132,28 +131,29 @@ class MangalaGame:
                 print(f"  - {lab} (index {idx})  ➜  Sème ({self.board[idx]} pierres)")
 
 
-game = MangalaGame()
-game.print_board()
+# game = MangalaGame()
+# game.print_board()
 
-while not game.is_game_over():
-    game.print_board()
-    game.print_legal_moves()
+# while not game.is_game_over():
+#     game.print_board()
+#     game.print_legal_moves()
 
-    if game.current_player == 1:  # Let's say P1 is the AI
-        move = ai.get_best_move(game)
-        print(f"KazanMaster chooses pit {move}")
-    else:
-        try:
-            move = int(input("Choose a pit index: "))
-        except Exception as e:
-            print("Error:", e)
-            continue
+#     # Ask KazanMasterAI for suggestion
+#     suggested_move = ai.get_best_move(game)
+#     print(f"💡 KazanMaster suggests: pit {suggested_move}")
 
-    try:
-        game.make_move(move)
-    except Exception as e:
-        print("Error:", e)
+#     # Let human decide
+#     try:
+#         move = int(input("Your move (index): "))
+#     except Exception as e:
+#         print("Error:", e)
+#         continue
+
+#     try:
+#         game.make_move(move)
+#     except Exception as e:
+#         print("Error:", e)
 
 
-game.end_game()
-game.print_board()
+# game.end_game()
+# game.print_board()
