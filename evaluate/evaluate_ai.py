@@ -28,4 +28,4 @@ def evaluate(ai0, ai1, num_games=50):
     print(f"Draws: {results[-1]}")
 
 if __name__ == "__main__":
-    evaluate(KazanMasterAI(max_depth=3), RandomAI(), num_games=20)
+    evaluate(KazanMasterAI(max_depth=5), RandomAI(), num_games=20)

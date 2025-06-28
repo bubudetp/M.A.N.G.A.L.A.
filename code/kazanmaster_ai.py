@@ -18,6 +18,7 @@ class KazanMasterAI:
         def good_pits(pits):
             return sum(1 for i in pits if game.board[i] > 1)
 
+        # --- Baseline Metrics ---
         kazan_diff = p0_score - p1_score
         pit_diff = pit_score(p0_pits) - pit_score(p1_pits)
         mobility = good_pits(p0_pits) - good_pits(p1_pits)
@@ -28,23 +29,53 @@ class KazanMasterAI:
             mobility * 0.2
         )
 
+        # --- Replay Opportunities ---
+        for i in game.get_player_pits(game.current_player):
+            stones = game.board[i]
+            if stones == 0:
+                continue
+            landing_index = (i + stones) % 14
+            if landing_index == game.get_kazan_index(game.current_player):
+                score += 3  # Reward replay possibilities
+
+        # --- Opponent Equal-Capture Risk (1-move lookahead) ---
+        risk_penalty = 0
+        for i in game.get_player_pits(1 - game.current_player):
+            opp = 12 - i
+            if game.board[i] > 0 and game.board[i] == game.board[opp] and game.board[i] != 3:
+                risk_penalty += 1
+        score -= risk_penalty * 3
+
+        # --- Opponent Mobility / Zugzwang Pressure ---
+        clone = game.clone()
+        clone.current_player = 1 - game.current_player
+        opp_moves = len(clone.legal_moves())
+        if opp_moves <= 2:
+            score += 2  # Apply pressure if opponent has limited moves
+
         return score if game.current_player == 0 else -score
 
     def move_heuristic(self, game, move):
-        """Encourage captures or large pits to be played first."""
+        """Encourage captures, replays, and large pits."""
         pit_index = move
         stones = game.board[pit_index]
         opponent_idx = 12 - pit_index
         opponent_stones = game.board[opponent_idx]
-        score = stones
 
-        # Prefer capture-eligible moves
+        score = 0
+
+        # Capture opportunity
         if game.can_capture_equal(pit_index):
             score += 10
 
-        # Prefer moves with more stones
-        if stones > 3:
+        # Large pit: more options
+        if stones >= 4:
             score += 2
+
+        # Replay opportunity
+        landing_index = (pit_index + stones) % 14
+        if landing_index == game.get_kazan_index(game.current_player):
+            score += 5
 
         return score
 
