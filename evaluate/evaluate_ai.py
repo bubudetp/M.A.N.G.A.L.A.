@@ -1,5 +1,5 @@
 from code.mangala_engine import MangalaGame
-from ai.kazanmaster_ai import KazanMasterAI
+from code.ai.kazanmaster_ai import KazanMasterAI
 from test.random_ai import RandomAI
 from test.greedy_ai import GreedyAI
 from test.rolloutless_kazan import RolloutlessKazanAI

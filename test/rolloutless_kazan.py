@@ -1,4 +1,4 @@
-from ai.kazanmaster_ai import KazanMasterAI
+from code.ai.kazanmaster_ai import KazanMasterAI
 
 class RolloutlessKazanAI(KazanMasterAI):
     def get_best_move(self, game):
