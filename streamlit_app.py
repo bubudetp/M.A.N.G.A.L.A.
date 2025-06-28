@@ -1,76 +1,74 @@
-# streamlit_app.py
 import streamlit as st
 from code.mangala_engine import MangalaGame
 from code.ai.kazanmaster_ai import KazanMasterAI
 
 st.set_page_config(page_title="MANGALA AI", layout="centered")
 
-# Session state setup
+# Session state init
 if "game" not in st.session_state:
     st.session_state.game = MangalaGame()
     st.session_state.message = "Your turn. Choose a pit to move."
+    st.session_state.awaiting_ai = False
+    st.session_state.last_ai_move = None
+    st.session_state.last_player_move = None
 
 game = st.session_state.game
 ai = KazanMasterAI(max_depth=5)
 
-st.title("🧠 KazanMaster: Play Mangala vs AI")
+st.title("KazanMaster: Play Mangala vs AI")
 
-# Function to render the board
-def render_board():
-    board = game.board
+# Render Kazan for AI
+st.markdown(f"### AI Kazan (P1): `{game.board[13]}`")
 
-    st.write(f"**Player 1 Kazan:** `{board[13]}`")
+# Top row (AI pits 12–7)
+top_row = st.columns(6)
+for i, col in zip(range(12, 6, -1), top_row):
+    col.markdown(f"⬇️ **{i}**")
+    col.button(f"🟪 {game.board[i]}", key=f"ai_{i}", disabled=True)
 
-    # Top row (Player 1 pits 12 to 7)
-    top_row = st.columns(6)
-    for i, col in zip(range(12, 6, -1), top_row):
-        col.markdown(f"**{i}**")
-        col.button(f"{board[i]}", key=f"p1_{i}", disabled=True)
+# Bottom row (Player pits 0–5)
+bottom_row = st.columns(6)
+for i, col in zip(range(0, 6), bottom_row):
+    col.markdown(f"⬆️ **{i}**")
+    if game.current_player == 0 and game.board[i] > 0:
+        if col.button(f"🟩 {game.board[i]}", key=f"p0_{i}"):
+            player_retains_turn = game.make_move(i)
+            st.session_state.last_player_move = i
+            st.session_state.last_ai_move = None
+            st.session_state.awaiting_ai = not player_retains_turn  # AI plays only if player doesn't retain turn
+            st.rerun()
+    else:
+        col.button(f"🟩 {game.board[i]}", key=f"p0_{i}", disabled=True)
 
-    # Bottom row (Player 0 pits 0 to 5)
-    bottom_row = st.columns(6)
-    for i, col in zip(range(0, 6), bottom_row):
-        col.markdown(f"**{i}**")
-        if game.board[i] > 0 and game.current_player == 0:
-            if col.button(f"{board[i]}", key=f"p0_{i}"):
-                retained = game.make_move(i)
-                st.session_state.message = f"You played pit {i}."
+# Render Kazan for player
+st.markdown(f"### 🧍 Your Kazan (P0): `{game.board[6]}`")
 
-                # Let AI play as long as it retains turn
-                while not game.is_game_over() and game.current_player == 1:
-                    ai_move = ai.get_best_move(game)
-                    retained = game.make_move(ai_move)
-                    st.session_state.message += f"\nAI played pit {ai_move}."
-                    if not retained:
-                        break
+# Perform AI move if needed
+if game.current_player == 1 and st.session_state.awaiting_ai and not game.is_game_over():
+    ai_move = ai.get_best_move(game)
+    ai_retains_turn = game.make_move(ai_move)
+    st.session_state.last_ai_move = ai_move
+    st.session_state.awaiting_ai = ai_retains_turn  # AI continues only if it retains turn
+    st.rerun()
 
-                st.rerun()  # <-- Refresh the app to show updated board
-
-        else:
-            col.button(f"{board[i]}", key=f"p0_{i}", disabled=True)
-
-    st.write(f"**Player 0 Kazan:** `{board[6]}`")
-
-# Display current board
-render_board()
+# Message display
+msg = ""
+if st.session_state.last_player_move is not None:
+    msg += f"🟩 You played pit {st.session_state.last_player_move}.  "
+if st.session_state.last_ai_move is not None:
+    msg += f"🟪 AI played pit {st.session_state.last_ai_move}."
 st.divider()
-st.info(st.session_state.message)
+st.info(msg or st.session_state.message)
 
-# Check for game end
+# Game Over
 if game.is_game_over():
     game.end_game()
     p0_score = game.board[6]
     p1_score = game.board[13]
-    if p0_score > p1_score:
-        result = "🏆 You win!"
-    elif p0_score < p1_score:
-        result = "💀 AI wins!"
-    else:
-        result = "🤝 Draw!"
-    st.success(f"Game Over!\n\n**Final Score** — You: {p0_score}, AI: {p1_score}\n\n{result}")
+    result = "🏆 You win!" if p0_score > p1_score else "💀 AI wins!" if p1_score > p0_score else "🤝 Draw!"
+    st.success(f"**Game Over!** Final Score — You: `{p0_score}` | AI: `{p1_score}`\n\n{result}")
 
-# Reset button
+# Restart
 if st.button("🔄 Restart Game"):
-    st.session_state.game = MangalaGame()
-    st.session_state.message = "New game started!"
+    st.session_state.clear()
     st.experimental_rerun()

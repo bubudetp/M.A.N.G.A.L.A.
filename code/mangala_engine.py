@@ -35,7 +35,7 @@ class MangalaGame:
             self.board[kazan] += prises
             self.board[pit_index] = 0
             self.board[opposite_index] = 0
-            return
+            return True  # Player gets another turn after capture
 
         index = pit_index
         stones = self.board[index]
@@ -57,8 +57,9 @@ class MangalaGame:
             self.board[index] += 1
             stones -= 1
 
+        # Check if last stone landed in player's kazan
         if index == self.get_kazan_index(self.current_player):
-            return
+            return True  # Player gets another turn
 
         # Optional: enable this if you want post-move capture on specific counts
         # if self.is_own_pit(index, self.current_player) and self.board[index] in (1, 3):
@@ -66,13 +67,11 @@ class MangalaGame:
         #     prises = self.board[index]
         #     self.board[kazan] += prises
         #     self.board[index] = 0
-        #     return
+        #     return True  # Player gets another turn after capture
 
-        if index == self.get_kazan_index(self.current_player):
-            return True
-                
+        # Turn passes to other player
         self.current_player = 1 - self.current_player
-        return False
+        return False  # Turn passes to other player
 
         
     def can_capture_equal(self, idx):
