@@ -1,3 +1,6 @@
+from ai.kazanmaster_ai import KazanMasterAI
+
+ai = KazanMasterAI(max_depth=6)
 class MangalaGame:
 
     def __init__(self):
@@ -68,13 +71,9 @@ class MangalaGame:
         #     self.board[index] = 0
         #     return
 
-        if index == self.get_kazan_index(self.current_player):
-            return True
-                
         self.current_player = 1 - self.current_player
-        return False
 
-        
+
     def can_capture_equal(self, idx):
         """True si la case idx et sa case opposée ont le même nombre ≠ 3."""
         opp = 12 - idx
@@ -132,29 +131,29 @@ class MangalaGame:
                 print(f"  - {lab} (index {idx})  ➜  Sème ({self.board[idx]} pierres)")
 
 
-# game = MangalaGame()
-# game.print_board()
+game = MangalaGame()
+game.print_board()
 
-# while not game.is_game_over():
-#     game.print_board()
-#     game.print_legal_moves()
+while not game.is_game_over():
+    game.print_board()
+    game.print_legal_moves()
 
-#     # Ask KazanMasterAI for suggestion
-#     suggested_move = ai.get_best_move(game)
-#     print(f"💡 KazanMaster suggests: pit {suggested_move}")
+    # Ask KazanMasterAI for suggestion
+    suggested_move = ai.get_best_move(game)
+    print(f"💡 KazanMaster suggests: pit {suggested_move}")
 
-#     # Let human decide
-#     try:
-#         move = int(input("Your move (index): "))
-#     except Exception as e:
-#         print("Error:", e)
-#         continue
+    # Let human decide
+    try:
+        move = int(input("Your move (index): "))
+    except Exception as e:
+        print("Error:", e)
+        continue
 
-#     try:
-#         game.make_move(move)
-#     except Exception as e:
-#         print("Error:", e)
+    try:
+        game.make_move(move)
+    except Exception as e:
+        print("Error:", e)
 
 
-# game.end_game()
-# game.print_board()
+game.end_game()
+game.print_board()

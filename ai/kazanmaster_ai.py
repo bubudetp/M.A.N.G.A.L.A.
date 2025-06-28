@@ -1,12 +1,15 @@
 import copy
 import math
+import random
+
+from code.mangala_engine import MangalaGame
 
 class KazanMasterAI:
     def __init__(self, max_depth=10):
         self.max_depth = max_depth
         self.transposition_table = {}
 
-    def evaluate(self, game):
+    def evaluate(self, game: MangalaGame) -> float:
         p0_score = game.board[6]
         p1_score = game.board[13]
         p0_pits = game.get_player_pits(0)
@@ -55,7 +58,7 @@ class KazanMasterAI:
 
         return score if game.current_player == 0 else -score
 
-    def move_heuristic(self, game, move):
+    def move_heuristic(self, game: MangalaGame, move: int) -> int:
         """Encourage captures, replays, and large pits."""
         pit_index = move
         stones = game.board[pit_index]
@@ -79,8 +82,7 @@ class KazanMasterAI:
 
         return score
 
-    def minimax(self, game, depth, alpha, beta, maximizing):
-        # Memoization key
+    def minimax(self, game: MangalaGame, depth: int, alpha: float, beta: float, maximizing: bool) -> tuple[float, int | None]:
         board_key = (tuple(game.board), game.current_player, depth)
         if board_key in self.transposition_table:
             return self.transposition_table[board_key], None
@@ -97,8 +99,6 @@ class KazanMasterAI:
             return val, None
 
         best_move = None
-
-        # Order moves
         ordered_moves = sorted(
             legal_moves,
             key=lambda m: self.move_heuristic(game, m),
@@ -110,11 +110,13 @@ class KazanMasterAI:
             for move in ordered_moves:
                 next_game = game.clone()
                 prev_player = next_game.current_player
-                next_game.make_move(move)
+                retained_turn = next_game.make_move(move)
 
                 next_depth = depth
-                if next_game.current_player != prev_player:
-                    next_depth -= 1  # Only reduce depth when turn passes
+                if not retained_turn:
+                    opp_legal_count = len(next_game.legal_moves())
+                    if opp_legal_count > 1:
+                        next_depth -= 1
 
                 eval, _ = self.minimax(
                     next_game,
@@ -138,11 +140,13 @@ class KazanMasterAI:
             for move in ordered_moves:
                 next_game = game.clone()
                 prev_player = next_game.current_player
-                next_game.make_move(move)
+                retained_turn = next_game.make_move(move)
 
                 next_depth = depth
-                if next_game.current_player != prev_player:
-                    next_depth -= 1
+                if not retained_turn:
+                    opp_legal_count = len(next_game.legal_moves())
+                    if opp_legal_count > 1:
+                        next_depth -= 1
 
                 eval, _ = self.minimax(
                     next_game,
@@ -161,7 +165,73 @@ class KazanMasterAI:
             self.transposition_table[board_key] = min_eval
             return min_eval, best_move
 
-    def get_best_move(self, game):
-        self.transposition_table = {}  # Reset cache each top-level call
-        _, move = self.minimax(game, self.max_depth, -math.inf, math.inf, True)
-        return move
+    def get_best_move(self, game: MangalaGame) -> int:
+        self.transposition_table = {}
+        _, best_move = self.minimax(game, self.max_depth, -math.inf, math.inf, True)
+
+        # Find all moves with the same top evaluation
+        legal_moves = game.legal_moves()
+        scores = []
+        best_score = -math.inf
+        best_moves = []
+
+        for move in legal_moves:
+            sim_game = game.clone()
+            sim_game.make_move(move)
+            val, _ = self.minimax(
+                sim_game,
+                self.max_depth - 1,
+                -math.inf,
+                math.inf,
+                sim_game.current_player == game.current_player
+            )
+            if val > best_score:
+                best_score = val
+                best_moves = [move]
+            elif val == best_score:
+                best_moves.append(move)
+
+        if len(best_moves) == 1:
+            return best_moves[0]
+
+        rollout_scores = [
+            (move, self.simulate_rollouts(game, move, num_simulations=5, loss_cutoff=-15))
+            for move in best_moves
+        ]
+        rollout_scores.sort(key=lambda x: x[1], reverse=True)
+        return rollout_scores[0][0]
+
+    def simulate_rollouts(self, game: MangalaGame, move: int, num_simulations: int = 5, loss_cutoff: int= -15) -> float:
+        total_score = 0
+        valid_simulations = 0
+
+        for _ in range(num_simulations):
+            sim_game = game.clone()
+            sim_game.make_move(move)
+
+            # Play until end using greedy policy
+            while not sim_game.is_game_over():
+                legal = sim_game.legal_moves()
+                if not legal:
+                    break
+
+                # Greedy move: pick the one with highest immediate heuristic
+                best = max(legal, key=lambda m: self.move_heuristic(sim_game, m))
+                sim_game.make_move(best)
+
+            sim_game.end_game()
+            p0_score = sim_game.board[6]
+            p1_score = sim_game.board[13]
+            result = p0_score - p1_score
+            signed_result = result if game.current_player == 0 else -result
+
+            # Cutoff: ignore simulations that result in major loss
+            if signed_result < loss_cutoff:
+                continue
+
+            total_score += signed_result
+            valid_simulations += 1
+
+        if valid_simulations == 0:
+            return -float('inf')  # Penalize unsafe move
+        return total_score / valid_simulations
